@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Analisador Lotomania PRO</title><style>
+body{background:#0A0A0A;color:#fff;font-family:Arial;margin:0;padding:15px;text-align:center}
+h1{color:#00BFFF}
+input{width:120px;padding:10px;border-radius:8px;border:2px solid #00BFFF;background:#222;color:#fff;text-align:center;margin:3px}
+button{padding:10px 15px;background:#00BFFF;border:none;border-radius:10px;cursor:pointer;font-weight:bold;margin:5px;color:#000}
+.tabela{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-width:600px;margin:20px auto}
+.numero{aspect-ratio:1/1;border:1px solid #444;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:bold;background:#222;font-size:14px}
+.sorteado{background:#00BFFF!important;color:#000}
+.boxInfo{background:#111;border:2px solid #00BFFF;padding:15px;margin:15px auto;border-radius:10px;max-width:600px;text-align:left}
+.boxInfo b{color:#00BFFF}
+</style></head><body>
+<h1>🎯 Analisador Lotomania PRO</h1>
+De: <input type="number" id="de" placeholder="2901">
+Até: <input type="number" id="ate" placeholder="2910"><br>
+<button onclick="buscarIntervalo()">🔍 PESQUISAR</button>
+<button onclick="ultimo()">ULTIMO</button>
+<button onclick="copiarNumeros()">📋 COPIAR NÚMEROS</button>
+
+<div id="info"></div>
+<div class="tabela" id="tabela"></div>
+
+<script>
+const API="https://loteriascaixa-api.herokuapp.com/api/lotomania/";let numerosSorteados=[];
+
+function criarTabela(){
+    const t=document.getElementById('tabela');t.innerHTML="";
+    for(let i=0;i<=99;i++){
+        let n=i.toString().padStart(2,'0');
+        t.innerHTML+=`<div class="numero" id="l${n}">${n}</div>`
+    }
+}
+
+function limparTabela(){
+    document.querySelectorAll('.numero').forEach(el=>el.classList.remove('sorteado'));
+    numerosSorteados=[];
+}
+
+function calcularEstatisticas(numeros){
+    let pares=0,impares=0,pp=0,ip=0,ii=0,pi=0;
+
+    numeros.forEach(n=>{
+        let num=parseInt(n);
+        let primeiro=parseInt(n[0]);
+        let ultimo=parseInt(n[1]);
+
+        if(num%2==0)pares++; else impares++;
+
+        let p1=primeiro%2==0, p2=ultimo%2==0;
+        if(p1&&p2)pp++;
+        if(!p1&&p2)ip++;
+        if(!p1&&!p2)ii++;
+        if(p1&&!p2)pi++;
+    });
+
+    return{pares,impares,pp,ip,ii,pi,total:numeros.length}
+}
+
+function mostrar(data){
+    limparTabela();
+    let todosNumeros=[];
+
+    if(Array.isArray(data)){ // intervalo
+        data.forEach(concurso=>{
+            todosNumeros.push(...concurso.dezenas);
+        });
+        document.getElementById('info').innerHTML=`<h2>Concursos ${data[0].concurso} até ${data[data.length-1].concurso}</h2>`;
+    }else{ // 1 concurso
+        todosNumeros=data.dezenas;
+        document.getElementById('info').innerHTML=`<h2>Concurso ${data.concurso} - ${data.data}</h2>`;
+    }
+
+    numerosSorteados=[...new Set(todosNumeros)]; // remove duplicados do intervalo
+    let stats=calcularEstatisticas(numerosSorteados);
+
+    numerosSorteados.forEach(n=>{
+        let el=document.getElementById('l'+n);
+        if(el)el.classList.add('sorteado')
+    });
+
+    document.getElementById('info').innerHTML+=`
+    <div class="boxInfo">
+        <b>Total de números pintados:</b> ${stats.total}<br>
+        <b>Pares:</b> ${stats.pares} | <b>Ímpares:</b> ${stats.impares}<br><br>
+        <b>PP - Par/Par:</b> ${stats.pp}<br>
+        <b>IP - Ímpar/Par:</b> ${stats.ip}<br>
+        <b>II - Ímpar/Ímpar:</b> ${stats.ii}<br>
+        <b>PI - Par/Ímpar:</b> ${stats.pi}<br><br>
+        <b>Números:</b> ${numerosSorteados.join(", ")}
+    </div>`;
+}
+
+async function buscarIntervalo(){
+    let d=document.getElementById('de').value,a=document.getElementById('ate').value;
+    if(!d||!a)return alert("Preencha DE e ATÉ");
+    let todos=[];
+    for(let i=parseInt(d);i<=parseInt(a);i++){
+        try{
+            let r=await fetch(API+i);
+            let data=await r.json();
+            todos.push(data);
+        }catch(e){}
+    }
+    if(todos.length>0)mostrar(todos); else alert("Nenhum concurso encontrado")
+}
+
+async function ultimo(){
+    let r=await fetch(API+"latest"),data=await r.json();
+    document.getElementById('de').value=data.concurso;
+    document.getElementById('ate').value=data.concurso;
+    mostrar(data)
+}
+
+function copiarNumeros(){
+    if(numerosSorteados.length==0)return alert("Pesquise primeiro");
+    navigator.clipboard.writeText(numerosSorteados.join(", "));
+    alert("Números copiados: "+numerosSorteados.length+" números")
+}
+
+criarTabela();
+</script></body></html>
