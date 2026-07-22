@@ -11,17 +11,17 @@ button{padding:10px 15px;background:#00BFFF;border:none;border-radius:10px;curso
 .boxInfo{background:#111;border:2px solid #00BFFF;padding:15px;margin:15px auto;border-radius:10px;max-width:600px;text-align:left}
 .boxInfo b{color:#00BFFF}
 
-/* MENU LATERAL */
-.menuLateral{position:fixed;top:0;right:-350px;width:330px;height:100%;background:#111;border-left:2px solid #00BFFF;transition:0.3s;padding:15px;overflow-y:auto;z-index:999;text-align:left}
+/* MENU LATERAL IGUAL TUA IMAGEM */
+.menuLateral{position:fixed;top:0;right:-350px;width:330px;height:100%;background:#0A0A0A;border-left:2px solid #00BFFF;transition:0.3s;padding:15px;overflow-y:auto;z-index:999;text-align:left}
 .menuLateral.ativo{right:0}
-.menuLateral h2{color:#00BFFF;text-align:center;font-size:16px}
-.btnPasta{background:#222;border:2px solid #00BFFF;color:#00BFFF;width:100%;margin:5px 0;padding:12px;text-align:left}
+.menuLateral h2{color:#00BFFF;text-align:center;font-size:18px}
+.btnPasta{background:#111;border:2px solid #00BFFF;color:#00BFFF;width:100%;margin:8px 0;padding:12px;text-align:left;border-radius:10px;font-size:15px}
 .btnPasta:hover{background:#00BFFF;color:#000}
 .jogoSalvo{background:#222;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #444;font-size:12px}
 .sequencia{background:#1a3d5c;padding:8px;margin:5px 0;border-radius:6px;border:1px solid #00BFFF;font-size:12px}
-.btnFechar{float:right;background:red;color:#fff;padding:5px 10px}
-.abas{display:flex;gap:5px;margin-bottom:10px}
-.aba{flex:1;padding:8px;background:#222;border:1px solid #444;cursor:pointer}
+.btnFechar{float:right;background:red;color:#fff;padding:5px 10px;border-radius:50%}
+.abas{display:flex;gap:5px;margin:10px 0}
+.aba{flex:1;padding:10px;background:#222;border:1px solid #444;cursor:pointer;color:#fff;border-radius:8px}
 .aba.ativa{background:#00BFFF;color:#000}
 </style></head><body>
 <button onclick="abrirMenu()" style="position:absolute;top:15px;right:15px">📂 PASTAS</button>
@@ -43,19 +43,25 @@ Até: <input type="number" id="ate" placeholder="2910"><br>
 <!-- MENU LATERAL -->
 <div class="menuLateral" id="menu">
     <button class="btnFechar" onclick="fecharMenu()">X</button>
-    <h2>📂 Pastas</h2>
+    <h2>📁 Pastas</h2>
 
-    <button class="btnPasta" onclick="abrirPasta(3)">📁 Pasta 3 <span id="count3"></span></button>
-    <button class="btnPasta" onclick="abrirPasta(4)">📁 Pasta 4 <span id="count4"></span></button>
-    <button class="btnPasta" onclick="abrirPasta(5)">📁 Pasta 5 <span id="count5"></span></button>
-    <button class="btnPasta" onclick="abrirPasta(6)">📁 Pasta 6 <span id="count6"></span></button>
+    <button class="btnPasta" onclick="abrirPasta(3)">📁 Pasta 3 <span id="count3">(0)</span></button>
+    <button class="btnPasta" onclick="abrirPasta(4)">📁 Pasta 4 <span id="count4">(0)</span></button>
+    <button class="btnPasta" onclick="abrirPasta(5)">📁 Pasta 5 <span id="count5">(0)</span></button>
+    <button class="btnPasta" onclick="abrirPasta(6)">📁 Pasta 6 <span id="count6">(0)</span></button>
 
     <div id="conteudoPasta"></div>
 </div>
 
 <script>
 const API="https://loteriascaixa-api.herokuapp.com/api/lotomania/";let numerosSorteados=[];
-let jogosSalvos = JSON.parse(localStorage.getItem('jogosLotomania')) || {3:[],4:[],5:[],6:[]};
+
+// CORREÇÃO: Força reset se tiver dado antigo
+let jogosSalvos = JSON.parse(localStorage.getItem('jogosLotomania'));
+if(!jogosSalvos || typeof jogosSalvos[3] == 'undefined'){
+    jogosSalvos = {3:[],4:[],5:[],6:[]};
+    localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
+}
 let pastaAtual = null;
 
 function criarTabela(){
@@ -129,7 +135,6 @@ function salvarJogo(){
     if(numerosSorteados.length==0)return alert("Pesquise um concurso primeiro");
     let colunas = calcularColunas(numerosSorteados);
 
-    // Pega só colunas com 0 ou 1
     let colunas01 = [];
     colunas.forEach((qtd,i)=>{
         if(qtd==0 || qtd==1) colunas01.push({col:i+1,qtd:qtd});
@@ -144,7 +149,7 @@ function salvarJogo(){
     let jogo = {
         nome: nome,
         data: new Date().toLocaleString(),
-        colunas01: colunas01, // [{col:2,qtd:1}, {col:7,qtd:0}]
+        colunas01: colunas01,
         colunasCompleta: colunas,
         numeros: numerosSorteados
     };
@@ -152,7 +157,7 @@ function salvarJogo(){
     jogosSalvos[qtdColunas].push(jogo);
     localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
     atualizarContadores();
-    alert(`Jogo salvo na Pasta ${qtdColunas} com ${qtdColunas} colunas 0/1!`);
+    alert(`Jogo salvo na Pasta ${qtdColunas}!`);
 }
 
 function atualizarContadores(){
@@ -168,14 +173,15 @@ function abrirPasta(num){
     let jogos = jogosSalvos[num];
 
     let html = `<h3>📁 Pasta ${num} - ${jogos.length} jogos</h3>`;
-    html += `<div class="abas"><div class="aba ativa" onclick="mostrarJogosPasta(${num})">Jogos</div><div class="aba" onclick="mostrarSequenciasPasta(${num})">Sequências</div></div>`;
+    html += `<div class="abas"><div class="aba ativa" onclick="mostrarJogosPasta(${num},this)">Jogos</div><div class="aba" onclick="mostrarSequenciasPasta(${num},this)">Sequências</div></div>`;
     html += `<div id="listaPasta"></div>`;
     div.innerHTML = html;
 
     mostrarJogosPasta(num);
 }
 
-function mostrarJogosPasta(num){
+function mostrarJogosPasta(num, el){
+    if(el){document.querySelectorAll('.aba').forEach(a=>a.classList.remove('ativa'));el.classList.add('ativa')}
     let jogos = jogosSalvos[num];
     let div = document.getElementById('listaPasta');div.innerHTML="";
 
@@ -186,23 +192,22 @@ function mostrarJogosPasta(num){
         div.innerHTML += `<div class="jogoSalvo">
         <b>${jogo.nome}</b> <button onclick="deletarJogo(${num},${i})" style="float:right;background:red">X</button><br>
         <small>${jogo.data}</small><br>
-        ${colsTxt}<br>
-        <small>${jogo.numeros.length} números</small></div>`;
+        ${colsTxt}</div>`;
     })
 }
 
-function mostrarSequenciasPasta(num){
+function mostrarSequenciasPasta(num, el){
+    if(el){document.querySelectorAll('.aba').forEach(a=>a.classList.remove('ativa'));el.classList.add('ativa')}
     let jogos = jogosSalvos[num];
     let div = document.getElementById('listaPasta');div.innerHTML="";
     let mapa = {};
 
     jogos.forEach(jogo=>{
-        // Pega só as colunas que tiveram 1
         let colsCom1 = [];
         jogo.colunasCompleta.forEach((qtd,i)=>{
             if(qtd==1) colsCom1.push(i+1);
         });
-        if(colsCom1.length>0){
+        if(colsCom1.length>1){
             let chave = colsCom1.sort((a,b)=>a-b).join(",");
             if(!mapa[chave]) mapa[chave] = 0;
             mapa[chave]++;
