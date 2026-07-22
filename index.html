@@ -1,16 +1,26 @@
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Analisador Lotomania PRO</title><style>
-body{background:#0A0A0A;color:#fff;font-family:Arial;margin:0;padding:15px;text-align:center}
+body{background:#0A0A0A;color:#fff;font-family:Arial;margin:0;padding:15px;text-align:center;overflow-x:hidden}
 h1{color:#00BFFF}
 input{width:120px;padding:10px;border-radius:8px;border:2px solid #00BFFF;background:#222;color:#fff;text-align:center;margin:3px}
 button{padding:10px 15px;background:#00BFFF;border:none;border-radius:10px;cursor:pointer;font-weight:bold;margin:5px;color:#000}
-.cabecalho{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-width:600px;margin:0 auto 5px auto} /* NOVO */
-.colNum{text-align:center;font-weight:bold;color:#00BFFF;font-size:12px} /* NOVO */
+.cabecalho{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-width:600px;margin:0 auto 5px auto}
+.colNum{text-align:center;font-weight:bold;color:#00BFFF;font-size:12px}
 .tabela{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-width:600px;margin:20px auto}
 .numero{aspect-ratio:1/1;border:1px solid #444;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:bold;background:#222;font-size:14px}
 .sorteado{background:#00BFFF!important;color:#000}
 .boxInfo{background:#111;border:2px solid #00BFFF;padding:15px;margin:15px auto;border-radius:10px;max-width:600px;text-align:left}
 .boxInfo b{color:#00BFFF}
+
+/* MENU LATERAL */
+.menuLateral{position:fixed;top:0;right:-350px;width:320px;height:100%;background:#111;border-left:2px solid #00BFFF;transition:0.3s;padding:15px;overflow-y:auto;z-index:999;text-align:left}
+.menuLateral.ativo{right:0}
+.menuLateral h2{color:#00BFFF;text-align:center}
+.jogoSalvo{background:#222;padding:10px;margin:10px 0;border-radius:8px;border:1px solid #444}
+.jogoSalvo b{color:#00BFFF}
+.btnFechar{float:right;background:red;color:#fff;padding:5px 10px}
 </style></head><body>
+<button onclick="abrirMenu()" style="position:absolute;top:15px;right:15px">📂 JOGOS</button>
+
 <h1>🎯 Analisador Lotomania PRO</h1>
 De: <input type="number" id="de" placeholder="2901">
 Até: <input type="number" id="ate" placeholder="2910"><br>
@@ -19,18 +29,27 @@ Até: <input type="number" id="ate" placeholder="2910"><br>
 <button onclick="anterior()">⬅ ANTERIOR</button>
 <button onclick="proximo()">PRÓXIMO ➡</button>
 <button onclick="copiarNumeros()">📋 COPIAR NÚMEROS</button>
+<button onclick="salvarJogo()">💾 SALVAR JOGO</button> <!-- NOVO -->
 
 <div id="info"></div>
-<div class="cabecalho" id="cabecalho"></div> <!-- NUMERAÇÃO -->
+<div class="cabecalho" id="cabecalho"></div>
 <div class="tabela" id="tabela"></div>
+
+<!-- MENU LATERAL -->
+<div class="menuLateral" id="menu">
+    <button class="btnFechar" onclick="fecharMenu()">X</button>
+    <h2>📂 Jogos Salvos</h2>
+    <div id="listaJogos"></div>
+</div>
 
 <script>
 const API="https://loteriascaixa-api.herokuapp.com/api/lotomania/";let numerosSorteados=[];
+let jogosSalvos = JSON.parse(localStorage.getItem('jogosLotomania')) || []; // Salva no navegador
 
 function criarTabela(){
     const t=document.getElementById('tabela');t.innerHTML="";
     const c=document.getElementById('cabecalho');c.innerHTML="";
-    for(let i=1;i<=10;i++){c.innerHTML+=`<div class="colNum">${i}</div>`} // CABEÇALHO
+    for(let i=1;i<=10;i++){c.innerHTML+=`<div class="colNum">${i}</div>`}
     for(let i=1;i<=99;i++){let n=i.toString().padStart(2,'0');t.innerHTML+=`<div class="numero" id="l${n}">${n}</div>`}
     t.innerHTML+=`<div class="numero" id="l00">00</div>`
 }
@@ -38,6 +57,17 @@ function criarTabela(){
 function limparTabela(){
     document.querySelectorAll('.numero').forEach(el=>el.classList.remove('sorteado'));
     numerosSorteados=[];
+}
+
+function calcularColunas(numeros){
+    let colunas = [0,0,0,0,0,0,0,0,0,0]; // 10 colunas
+    numeros.forEach(n=>{
+        let num = parseInt(n);
+        let coluna = num % 10; // pega o último dígito
+        if(coluna == 0) coluna = 10; // 00, 10, 20... ficam na coluna 10
+        colunas[coluna-1]++; // coluna 1 = indice 0
+    });
+    return colunas;
 }
 
 function calcularEstatisticas(numeros){
@@ -65,18 +95,64 @@ function mostrar(data){
     }
     numerosSorteados=[...new Set(todosNumeros)];
     let stats=calcularEstatisticas(numerosSorteados);
+    let colunas = calcularColunas(numerosSorteados); // CALCULA COLUNAS
+
     numerosSorteados.forEach(n=>{let el=document.getElementById('l'+n);if(el)el.classList.add('sorteado')});
+    
+    let htmlColunas = "<b>Contagem por Coluna:</b><br>";
+    colunas.forEach((qtd,i)=>{htmlColunas += `Col ${i+1}: ${qtd} `});
+    
     document.getElementById('info').innerHTML+=`
     <div class="boxInfo">
         <b>Total de números pintados:</b> ${stats.total}<br>
         <b>Pares:</b> ${stats.pares} | <b>Ímpares:</b> ${stats.impares}<br><br>
-        <b>PP - Par/Par:</b> ${stats.pp}<br>
-        <b>IP - Ímpar/Par:</b> ${stats.ip}<br>
-        <b>II - Ímpar/Ímpar:</b> ${stats.ii}<br>
-        <b>PI - Par/Ímpar:</b> ${stats.pi}<br><br>
+        <b>PP:</b> ${stats.pp} <b>IP:</b> ${stats.ip} <b>II:</b> ${stats.ii} <b>PI:</b> ${stats.pi}<br><br>
+        ${htmlColunas}<br><br>
         <b>Números:</b> ${numerosSorteados.join(", ")}
     </div>`;
 }
+
+// SALVAR JOGO
+function salvarJogo(){
+    if(numerosSorteados.length==0)return alert("Pesquise um concurso primeiro");
+    let colunas = calcularColunas(numerosSorteados);
+    let nome = prompt("Nome do jogo:", `Jogo ${new Date().toLocaleDateString()}`);
+    if(!nome) return;
+    
+    let jogo = {
+        nome: nome,
+        data: new Date().toLocaleString(),
+        colunas: colunas,
+        numeros: numerosSorteados
+    };
+    jogosSalvos.push(jogo);
+    localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
+    carregarJogos();
+    alert("Jogo salvo!");
+}
+
+function carregarJogos(){
+    let div = document.getElementById('listaJogos');div.innerHTML="";
+    jogosSalvos.forEach((jogo,i)=>{
+        let html = `<div class="jogoSalvo">
+        <b>${jogo.nome}</b> <button onclick="deletarJogo(${i})" style="float:right;background:red">X</button><br>
+        <small>${jogo.data}</small><br><br>`;
+        jogo.colunas.forEach((qtd,idx)=>{html += `C${idx+1}:${qtd} `});
+        html += `<br><small>${jogo.numeros.join(", ")}</small></div>`;
+        div.innerHTML += html;
+    })
+}
+
+function deletarJogo(i){
+    if(confirm("Deletar jogo?")){
+        jogosSalvos.splice(i,1);
+        localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
+        carregarJogos();
+    }
+}
+
+function abrirMenu(){document.getElementById('menu').classList.add('ativo');carregarJogos()}
+function fecharMenu(){document.getElementById('menu').classList.remove('ativo')}
 
 async function buscarIntervalo(){
     let d=document.getElementById('de').value,a=document.getElementById('ate').value;
