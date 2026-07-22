@@ -3,6 +3,8 @@ body{background:#0A0A0A;color:#fff;font-family:Arial;margin:0;padding:15px;text-
 h1{color:#00BFFF}
 input{width:120px;padding:10px;border-radius:8px;border:2px solid #00BFFF;background:#222;color:#fff;text-align:center;margin:3px}
 button{padding:10px 15px;background:#00BFFF;border:none;border-radius:10px;cursor:pointer;font-weight:bold;margin:5px;color:#000}
+.cabecalho{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-width:600px;margin:0 auto 5px auto} /* NOVO */
+.colNum{text-align:center;font-weight:bold;color:#00BFFF;font-size:12px} /* NOVO */
 .tabela{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-width:600px;margin:20px auto}
 .numero{aspect-ratio:1/1;border:1px solid #444;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:bold;background:#222;font-size:14px}
 .sorteado{background:#00BFFF!important;color:#000}
@@ -19,6 +21,7 @@ Até: <input type="number" id="ate" placeholder="2910"><br>
 <button onclick="copiarNumeros()">📋 COPIAR NÚMEROS</button>
 
 <div id="info"></div>
+<div class="cabecalho" id="cabecalho"></div> <!-- NUMERAÇÃO -->
 <div class="tabela" id="tabela"></div>
 
 <script>
@@ -26,6 +29,8 @@ const API="https://loteriascaixa-api.herokuapp.com/api/lotomania/";let numerosSo
 
 function criarTabela(){
     const t=document.getElementById('tabela');t.innerHTML="";
+    const c=document.getElementById('cabecalho');c.innerHTML="";
+    for(let i=1;i<=10;i++){c.innerHTML+=`<div class="colNum">${i}</div>`} // CABEÇALHO
     for(let i=1;i<=99;i++){let n=i.toString().padStart(2,'0');t.innerHTML+=`<div class="numero" id="l${n}">${n}</div>`}
     t.innerHTML+=`<div class="numero" id="l00">00</div>`
 }
