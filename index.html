@@ -16,14 +16,15 @@ button{padding:10px 15px;background:#00BFFF;border:none;border-radius:10px;curso
 .menuLateral h2{color:#00BFFF;text-align:center;font-size:18px}
 .btnPasta{background:#111;border:2px solid #00BFFF;color:#00BFFF;width:100%;margin:8px 0;padding:12px;text-align:left;border-radius:10px;font-size:15px}
 .btnPasta:hover{background:#00BFFF;color:#000}
-.jogoSalvo{background:#222;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #444;font-size:12px;position:relative}
-.jogoSalvo.numJogo{position:absolute;top:8px;right:45px;background:#00BFFF;color:#000;padding:2px 8px;border-radius:5px;font-weight:bold}
+.jogoSalvo{background:#222;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #444;font-size:12px;position:relative;padding-right:40px}
+.btnDel{position:absolute;top:8px;right:8px;background:red;border:none;color:#fff;border-radius:5px;padding:3px 8px}
 .sequencia{background:#1a3d5c;padding:8px;margin:5px 0;border-radius:6px;border:1px solid #00BFFF;font-size:12px}
 .btnFechar{position:absolute;top:15px;right:15px;background:red;color:#fff;border:none;border-radius:50%;width:35px;height:35px;font-size:18px;cursor:pointer}
 .abas{display:flex;gap:5px;margin:10px 0}
 .aba{flex:1;padding:10px;background:#222;border:1px solid #444;cursor:pointer;color:#fff;border-radius:8px}
 .aba.ativa{background:#00BFFF;color:#000}
-.repetiu{color:#00FF00;font-weight:bold;font-size:11px}
+.tituloRep{background:#00BFFF;color:#000;padding:8px;border-radius:8px;margin-top:15px;font-weight:bold;text-align:center}
+.repItem{background:#222;padding:8px;margin:5px 0;border-radius:6px;border-left:3px solid #00FF00}
 </style></head><body>
 <button onclick="abrirMenu()" style="position:absolute;top:15px;right:15px">📂 PASTAS</button>
 
@@ -53,8 +54,6 @@ Até: <input type="number" id="ate" placeholder="2910"><br>
 
 <script>
 const API="https://loteriascaixa-api.herokuapp.com/api/lotomania/";let numerosSorteados=[], concursoAtual=0;
-
-// CORREÇÃO: AGORA LÊ DO SALVO E NÃO APAGA MAIS
 let jogosSalvos = JSON.parse(localStorage.getItem('jogosLotomania'));
 if(!jogosSalvos || typeof jogosSalvos[3] == 'undefined'){
     jogosSalvos = {3:[],4:[],5:[],6:[]};
@@ -84,19 +83,6 @@ function calcularColunas(numeros){
     return colunas;
 }
 
-function calcularEstatisticas(numeros){
-    let pares=0,impares=0,pp=0,ip=0,ii=0,pi=0;
-    numeros.forEach(n=>{
-        let num=parseInt(n);
-        let primeiro=parseInt(n[0]);
-        let ultimo=parseInt(n[1]);
-        if(num%2==0)pares++; else impares++;
-        let p1=primeiro%2==0, p2=ultimo%2==0;
-        if(p1&&p2)pp++; if(!p1&&p2)ip++; if(!p1&&!p2)ii++; if(p1&&!p2)pi++;
-    });
-    return{pares,impares,pp,ip,ii,pi,total:numeros.length}
-}
-
 function mostrar(data){
     limparTabela();
     let todosNumeros=[];
@@ -110,7 +96,6 @@ function mostrar(data){
         document.getElementById('info').innerHTML=`<h2>Concurso ${data.concurso} - ${data.data}</h2>`;
     }
     numerosSorteados=[...new Set(todosNumeros)];
-    let stats=calcularEstatisticas(numerosSorteados);
     let colunas = calcularColunas(numerosSorteados);
     numerosSorteados.forEach(n=>{let el=document.getElementById('l'+n);if(el)el.classList.add('sorteado')});
 
@@ -119,10 +104,8 @@ function mostrar(data){
 
     document.getElementById('info').innerHTML+=`
     <div class="boxInfo">
-        <b>Total:</b> ${stats.total} | <b>Pares:</b> ${stats.pares} | <b>Ímpares:</b> ${stats.impares}<br>
-        <b>PP:</b> ${stats.pp} <b>IP:</b> ${stats.ip} <b>II:</b> ${stats.ii} <b>PI:</b> ${stats.pi}<br><br>
-        ${htmlColunas}<br><br>
-        <b>Números:</b> ${numerosSorteados.join(", ")}
+        <b>Números:</b> ${numerosSorteados.join(", ")}<br><br>
+        ${htmlColunas}
     </div>`;
     atualizarContadores();
 }
@@ -140,8 +123,7 @@ function salvarJogo(){
     let jogo = {
         concurso: concursoAtual,
         colunas01: colunas01,
-        colunasCompleta: colunas,
-        numeros: numerosSorteados
+        colunasCompleta: colunas
     };
     jogosSalvos[qtdColunas].push(jogo);
     localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
@@ -171,22 +153,27 @@ function mostrarJogosPasta(num, el){
     let div = document.getElementById('listaPasta');div.innerHTML="";
     if(jogos.length==0){div.innerHTML="<small>Nenhum jogo nessa pasta</small>";return}
 
-    let repeticoes = calcularRepeticoesParciais(jogos, num);
-
+    // LISTA OS JOGOS LIMPOS
     jogos.forEach((jogo,i)=>{
         let colsTxt = jogo.colunas01.map(c=>`C${c.col}:${c.qtd}`).join(" ");
-        let infoRepetiu = repeticoes[i]? `<div class="repetiu">${repeticoes[i]}</div>` : "";
         div.innerHTML += `<div class="jogoSalvo">
-        <span class="numJogo">Jogo ${i+1}</span>
-        <b>Concurso ${jogo.concurso}</b>${infoRepetiu}
-        ${colsTxt}<br>
-        <button onclick="deletarJogo(${num},${i})" style="float:right;background:red;border:none;color:#fff;border-radius:5px;padding:3px 8px;margin-top:5px">X</button>
+        <b>Jogo ${i+1}</b> <b>Concurso ${jogo.concurso}</b> ${colsTxt}
+        <button class="btnDel" onclick="deletarJogo(${num},${i})">X</button>
         </div>`;
     })
+
+    // REPETIÇÕES LÁ EMBAIXO
+    let repeticoes = calcularRepeticoesParciais(jogos, num);
+    if(repeticoes.length > 0){
+        div.innerHTML += `<div class="tituloRep">--- REPETIÇÕES ---</div>`;
+        repeticoes.forEach(rep=>{
+            div.innerHTML += `<div class="repItem">${rep}</div>`;
+        })
+    }
 }
 
 function calcularRepeticoesParciais(jogos, pasta){
-    let resultado = new Array(jogos.length).fill("");
+    let resultado = [];
     let minRepetir = 3;
     let maxRepetir = pasta == 6? 5 : pasta;
 
@@ -197,10 +184,8 @@ function calcularRepeticoesParciais(jogos, pasta){
             let iguais = colsI.filter(c=>colsJ.includes(c));
 
             if(iguais.length >= minRepetir && iguais.length <= maxRepetir){
-                let txt = `jogo ${j+1} [${iguais.length}×]`;
-                if(!resultado[i].includes(txt)) resultado[i] += txt + " ";
-                let txt2 = `jogo ${i+1} [${iguais.length}×]`;
-                if(!resultado[j].includes(txt2)) resultado[j] += txt2 + " ";
+                let colsTexto = iguais.map(c=>`C${c}:1`).join(" "); // mostra só as que repetiram
+                resultado.push(`Jogo ${i+1} e Jogo ${j+1} saiu ${colsTexto} [ ${iguais.length}× ]`);
             }
         }
     }
