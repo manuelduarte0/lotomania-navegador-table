@@ -18,6 +18,7 @@ button{padding:10px 15px;background:#00BFFF;border:none;border-radius:10px;curso
 .jogoSalvo{background:#222;padding:10px;margin:10px 0;border-radius:8px;border:1px solid #444}
 .jogoSalvo b{color:#00BFFF}
 .btnFechar{float:right;background:red;color:#fff;padding:5px 10px}
+.sequencia{background:#1a3d5c;padding:8px;margin:5px 0;border-radius:6px;border:1px solid #00BFFF}
 </style></head><body>
 <button onclick="abrirMenu()" style="position:absolute;top:15px;right:15px">📂 JOGOS</button>
 
@@ -29,7 +30,7 @@ Até: <input type="number" id="ate" placeholder="2910"><br>
 <button onclick="anterior()">⬅ ANTERIOR</button>
 <button onclick="proximo()">PRÓXIMO ➡</button>
 <button onclick="copiarNumeros()">📋 COPIAR NÚMEROS</button>
-<button onclick="salvarJogo()">💾 SALVAR JOGO</button> <!-- NOVO -->
+<button onclick="salvarJogo()">💾 SALVAR JOGO</button>
 
 <div id="info"></div>
 <div class="cabecalho" id="cabecalho"></div>
@@ -40,11 +41,14 @@ Até: <input type="number" id="ate" placeholder="2910"><br>
     <button class="btnFechar" onclick="fecharMenu()">X</button>
     <h2>📂 Jogos Salvos</h2>
     <div id="listaJogos"></div>
+    <hr style="border-color:#00BFFF">
+    <h2>🔁 Sequências Repetidas</h2>
+    <div id="listaSequencias"></div>
 </div>
 
 <script>
 const API="https://loteriascaixa-api.herokuapp.com/api/lotomania/";let numerosSorteados=[];
-let jogosSalvos = JSON.parse(localStorage.getItem('jogosLotomania')) || []; // Salva no navegador
+let jogosSalvos = JSON.parse(localStorage.getItem('jogosLotomania')) || [];
 
 function criarTabela(){
     const t=document.getElementById('tabela');t.innerHTML="";
@@ -60,12 +64,12 @@ function limparTabela(){
 }
 
 function calcularColunas(numeros){
-    let colunas = [0,0,0,0,0,0,0,0,0,0]; // 10 colunas
+    let colunas = [0,0,0,0,0,0,0,0,0,0];
     numeros.forEach(n=>{
         let num = parseInt(n);
-        let coluna = num % 10; // pega o último dígito
-        if(coluna == 0) coluna = 10; // 00, 10, 20... ficam na coluna 10
-        colunas[coluna-1]++; // coluna 1 = indice 0
+        let coluna = num % 10;
+        if(coluna == 0) coluna = 10;
+        colunas[coluna-1]++;
     });
     return colunas;
 }
@@ -95,40 +99,50 @@ function mostrar(data){
     }
     numerosSorteados=[...new Set(todosNumeros)];
     let stats=calcularEstatisticas(numerosSorteados);
-    let colunas = calcularColunas(numerosSorteados); // CALCULA COLUNAS
+    let colunas = calcularColunas(numerosSorteados);
 
     numerosSorteados.forEach(n=>{let el=document.getElementById('l'+n);if(el)el.classList.add('sorteado')});
-    
+
     let htmlColunas = "<b>Contagem por Coluna:</b><br>";
-    colunas.forEach((qtd,i)=>{htmlColunas += `Col ${i+1}: ${qtd} `});
-    
+    colunas.forEach((qtd,i)=>{htmlColunas += `C${i+1}:${qtd} `});
+
     document.getElementById('info').innerHTML+=`
     <div class="boxInfo">
-        <b>Total de números pintados:</b> ${stats.total}<br>
-        <b>Pares:</b> ${stats.pares} | <b>Ímpares:</b> ${stats.impares}<br><br>
+        <b>Total:</b> ${stats.total} | <b>Pares:</b> ${stats.pares} | <b>Ímpares:</b> ${stats.impares}<br>
         <b>PP:</b> ${stats.pp} <b>IP:</b> ${stats.ip} <b>II:</b> ${stats.ii} <b>PI:</b> ${stats.pi}<br><br>
         ${htmlColunas}<br><br>
         <b>Números:</b> ${numerosSorteados.join(", ")}
     </div>`;
 }
 
-// SALVAR JOGO
+// SALVAR JOGO - SÓ COLUNAS 0 E 1
 function salvarJogo(){
     if(numerosSorteados.length==0)return alert("Pesquise um concurso primeiro");
     let colunas = calcularColunas(numerosSorteados);
+
+    // Filtra só colunas com 0 ou 1
+    let colunasFiltradas = [];
+    colunas.forEach((qtd,i)=>{
+        if(qtd==0 || qtd==1) colunasFiltradas.push(`C${i+1}:${qtd}`);
+    });
+
+    if(colunasFiltradas.length==0) return alert("Nenhuma coluna com 0 ou 1 nesse jogo");
+
     let nome = prompt("Nome do jogo:", `Jogo ${new Date().toLocaleDateString()}`);
     if(!nome) return;
-    
+
     let jogo = {
         nome: nome,
         data: new Date().toLocaleString(),
-        colunas: colunas,
+        colunas: colunasFiltradas, // SALVA SÓ 0 E 1
+        colunasCompleta: colunas, // guarda completa pra verificar sequencia
         numeros: numerosSorteados
     };
     jogosSalvos.push(jogo);
     localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
     carregarJogos();
-    alert("Jogo salvo!");
+    analisarSequencias(); // Analisa de novo
+    alert("Jogo salvo com colunas 0 e 1!");
 }
 
 function carregarJogos(){
@@ -136,11 +150,42 @@ function carregarJogos(){
     jogosSalvos.forEach((jogo,i)=>{
         let html = `<div class="jogoSalvo">
         <b>${jogo.nome}</b> <button onclick="deletarJogo(${i})" style="float:right;background:red">X</button><br>
-        <small>${jogo.data}</small><br><br>`;
-        jogo.colunas.forEach((qtd,idx)=>{html += `C${idx+1}:${qtd} `});
-        html += `<br><small>${jogo.numeros.join(", ")}</small></div>`;
+        <small>${jogo.data}</small><br><br>
+        <b>Colunas 0 e 1:</b> ${jogo.colunas.join(" ")}<br>
+        <small>${jogo.numeros.join(", ")}</small></div>`;
         div.innerHTML += html;
     })
+}
+
+// ANALISAR SEQUENCIAS REPETIDAS
+function analisarSequencias(){
+    let mapa = {}; // guarda quantas vezes cada combinação apareceu
+
+    jogosSalvos.forEach(jogo=>{
+        // Pega só as colunas que tiveram 1
+        let colsCom1 = [];
+        jogo.colunasCompleta.forEach((qtd,i)=>{
+            if(qtd==1) colsCom1.push(i+1);
+        });
+
+        if(colsCom1.length>1){
+            let chave = colsCom1.sort((a,b)=>a-b).join(","); // "1,5,7,8"
+            if(!mapa[chave]) mapa[chave] = 0;
+            mapa[chave]++;
+        }
+    });
+
+    // Mostra só as que repetiram 2+ vezes
+    let div = document.getElementById('listaSequencias');div.innerHTML="";
+    for(let chave in mapa){
+        if(mapa[chave] > 1){
+            div.innerHTML += `<div class="sequencia">
+            <b>C${chave.replace(/,/g,", C")}</b><br>
+            Repetiu: <b style="color:#00BFFF">${mapa[chave]} vezes</b>
+            </div>`;
+        }
+    }
+    if(div.innerHTML=="") div.innerHTML = "<small>Nenhuma sequência repetida ainda</small>";
 }
 
 function deletarJogo(i){
@@ -148,10 +193,11 @@ function deletarJogo(i){
         jogosSalvos.splice(i,1);
         localStorage.setItem('jogosLotomania', JSON.stringify(jogosSalvos));
         carregarJogos();
+        analisarSequencias();
     }
 }
 
-function abrirMenu(){document.getElementById('menu').classList.add('ativo');carregarJogos()}
+function abrirMenu(){document.getElementById('menu').classList.add('ativo');carregarJogos();analisarSequencias()}
 function fecharMenu(){document.getElementById('menu').classList.remove('ativo')}
 
 async function buscarIntervalo(){
